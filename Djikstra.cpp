@@ -36,11 +36,10 @@ int main(int argc, char* argv[])
         int row_iter = 0;
         while (std::getline(file, line))
         {
-            adjacency_matrix.push_back(std::vector<int>());
+            adjacency_matrix.push_back(std::vector<float>());
             
             std::istringstream iss(line);
             std::string value;
-            float 
             while(iss >> value)
             {
                 adjacency_matrix[row_iter].push_back(std::stoi(value));
