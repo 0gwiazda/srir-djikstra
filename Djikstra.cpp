@@ -3,8 +3,10 @@
 #include <string>
 #include <sstream>
 #include <vector>
-#include <limits.h>
+#include <limits>
 #include <mpi.h>
+
+#define END MPI_Finalize(); return 0;
 
 int main(int argc, char* argv[])
 {
@@ -30,17 +32,17 @@ int main(int argc, char* argv[])
             throw std::invalid_argument("Could not open the file");
         }
 
-        std::cout << "File \"" << argv[1] << "\" opened, parsing...\n" ;
+        std::cout << "File \"" << argv[1] << "\" opened, parsing...\n";
 
         std::string line;
         int row_iter = 0;
         while (std::getline(file, line))
         {
             adjacency_matrix.push_back(std::vector<float>());
-            
+
             std::istringstream iss(line);
             std::string value;
-            while(iss >> value)
+            while (iss >> value)
             {
                 adjacency_matrix[row_iter].push_back(std::stoi(value));
             }
@@ -76,7 +78,7 @@ int main(int argc, char* argv[])
             // 4. send part of afjacency matrix to every node
             for (int i = 0; i < split_size_send; i++)
             {
-                MPI_Send(&adjacency_matrix[i + split_size_send][0], n, MPI_FLOAT, process, 0, MPI_COMM_WORLD);
+                MPI_Send(&adjacency_matrix[i + split_sum][0], n, MPI_FLOAT, process, 0, MPI_COMM_WORLD);
             }
             split_sum += split_size_send;
         }
@@ -107,7 +109,7 @@ int main(int argc, char* argv[])
             MPI_Recv(&adjacency_matrix[i][0], n, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
     }
-    
+
     MPI_Bcast(&source, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     // start calculation
@@ -131,7 +133,7 @@ int main(int argc, char* argv[])
             std::cout << "\n";
         }
     }
-    
+
     MPI_Finalize();
     return 0;
 }
