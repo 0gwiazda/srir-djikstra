@@ -330,7 +330,7 @@ int main(int argc, char* argv[])
                 
                 while (true)
                 {
-                    Path << current_node;
+                    Path << current_node << " ";
                     current_node = global_predecessor_node[current_node];
                     loop_detector--;
 

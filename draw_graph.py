@@ -8,7 +8,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("filename")
     parser.add_argument("-s", "--shortest-path", default="-1")
+    parser.add_argument("-i", "--image-size", default="10")
     args = parser.parse_args()
+    size = int(args.image_size)
     node = 0
     chosen_path = []
 
@@ -24,8 +26,8 @@ def main():
                 G.add_edge(i, j, weight=adj_list[i][j], edge_color="blue")
 
 
-    pos = nx.spring_layout(G, seed=8)
-
+    pos = nx.fruchterman_reingold_layout(G, k=12, scale=2)
+    plt.figure(1, figsize=(size, size))
     nx.draw_networkx_nodes(G, pos)
     nx.draw_networkx_edges(G, pos, edge_color='black')
     
@@ -42,7 +44,7 @@ def main():
             return
         else:
             node = int(args.shortest_path)
-            chosen_path = np.array(list(paths[node]), dtype=int)
+            chosen_path = np.array(list(paths[node].split(" ")), dtype=int)
 
             for i in range(len(chosen_path) - 1):
                 x = chosen_path[i]
