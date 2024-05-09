@@ -35,9 +35,14 @@ def main():
 
         if len(paths) - 1 < int(args.shortest_path):
             print("Invalid node number. Node number <= ", len(paths) - 1)
+            return
+
+        elif int(paths[int(args.shortest_path)] == "-1"):
+            print("Invalid node number. Node number cannot be equal to source node: ", int(args.shortest_path))
+            return
         else:
             node = int(args.shortest_path)
-            chosen_path = np.array(list(paths[node].replace(" ", "")), dtype=int)
+            chosen_path = np.array(list(paths[node]), dtype=int)
 
             for i in range(len(chosen_path) - 1):
                 x = chosen_path[i]
@@ -45,7 +50,7 @@ def main():
 
                 colored.append((x, y))
 
-            nx.draw_networkx_edges(G, pos, edgelist=colored, edge_color='red')
+            nx.draw_networkx_edges(G, pos, edgelist=colored, edge_color='red', width=3)
 
     nx.draw_networkx_labels(G, pos)
     weights = nx.get_edge_attributes(G, "weight")

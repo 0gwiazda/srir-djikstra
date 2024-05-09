@@ -314,7 +314,41 @@ int main(int argc, char* argv[])
         }
         else
         {
-            std::cout << "Saving to file \"paths.txt\"" << std::endl;
+            std::cout << "Saving to file \"paths.txt\"..." << std::endl;
+            std::ofstream Path("path.txt");
+
+            for (int node = 0; node < n; node++)
+            {
+                if (node == source)
+                {
+                    Path << -1 << "\n";
+                    continue;
+                }
+
+                int current_node = node;
+                int loop_detector = n;
+                
+                while (true)
+                {
+                    Path << current_node;
+                    current_node = global_predecessor_node[current_node];
+                    loop_detector--;
+
+                    if (current_node == source)
+                    {
+                        Path << current_node << '\n';
+                        break;
+                    }
+                    
+                    if (loop_detector < 0)
+                    {
+                        std::cout << "LOOP DETECTED";
+                        break;
+                    }
+                }
+            }
+
+            Path.close();
         }
         /*
         std::ofstream Path("path.txt");
