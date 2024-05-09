@@ -4,6 +4,7 @@
 #include <sstream>
 #include <vector>
 #include <limits>
+#include <chrono>
 #include <mpi.h>
 
 #define INFINITY std::numeric_limits<float>::infinity()
@@ -19,50 +20,91 @@ int main(int argc, char* argv[])
 {
     MPI_Init(&argc, &argv);
 
-    int rank, size, n = 0, source = 0;
+    int rank, size, n = 0, source = 0, sink;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     int split_size, remainder, starting_node = 0;
     std::vector<std::vector<float>> adjacency_matrix;
-    //std::vector<float> l;
     std::vector<int> recvcounts(size), displs(size);
+    char file_type;
     if (rank == 0)
     {
-        if (argc != 2)
+        if (argc != 5)
         {
-            throw std::invalid_argument("File name not specified");
+            throw std::logic_error("Not enough arguments! Usage: djikstra [file type(b/t)] [file name] [source] [sink]");
         }
 
-        std::ifstream file(argv[1]);
+        file_type = *argv[1];
+
+        std::ifstream file;
+        if (file_type == 'b')
+        {
+            file = std::ifstream(argv[2], std::ios::binary);
+        }
+        else
+        {
+            file = std::ifstream(argv[2]);
+        }
 
         if (!file.is_open())
         {
-            throw std::invalid_argument("Could not open the file");
+            throw std::logic_error("Could not open the file!");
         }
 
-        std::cout << "File \"" << argv[1] << "\" opened, parsing...\n" ;
+        std::cout << "File \"" << argv[2] << "\" opened, parsing...\n";
 
-        std::string line;
-        int row_iter = 0;
-        while (std::getline(file, line))
+        try
         {
-            adjacency_matrix.push_back(std::vector<float>());
-            
-            std::istringstream iss(line);
-            std::string value;
-            while(iss >> value)
-            {
-                adjacency_matrix[row_iter].push_back(std::stoi(value) > 0 ? std::stoi(value) : INFINITY);
-            }
-            adjacency_matrix[row_iter].shrink_to_fit();
-            if (n == 0)
-            {
-                n = adjacency_matrix[0].size();
-            }
-            row_iter++;
+            source = std::stoi(argv[3]);
+            sink = std::stoi(argv[4]);
+        }
+        catch(...)
+        {
+            throw std::logic_error("Source and sink need to be integer numbers");
         }
 
-        std::cout << "Done\n";/*
+        if (file_type == 'b')
+        {
+            int row_iter = 0;
+            uint8_t value;
+            file.read((char *) &n, sizeof(int));
+            for (int row = 0; row < n; row++)
+            {
+                adjacency_matrix.push_back(std::vector<float>(n));
+                for (int col = 0; col < n; col++)
+                {
+                    file.read((char *) &value, sizeof(uint8_t));
+                    adjacency_matrix[row][col] = (value > 0) || (row == col) ? value : INFINITY;
+                }
+                //std::cout << '\r' << (static_cast<float>(row) / n * 100) << '%';
+            }
+        }
+        else
+        {
+            std::string line;
+            int row_iter = 0;
+            while (std::getline(file, line))
+            {
+                adjacency_matrix.push_back(std::vector<float>());
+            
+                std::istringstream iss(line);
+                std::string value;
+                int col_iter = 0;
+                while(iss >> value)
+                {
+                    adjacency_matrix[row_iter].push_back((std::stoi(value) > 0) || (row_iter == col_iter) ? std::stoi(value) : INFINITY);
+                    col_iter++;
+                }
+                adjacency_matrix[row_iter].shrink_to_fit();
+                if (n == 0)
+                {
+                    n = adjacency_matrix[0].size();
+                }
+                row_iter++;
+            }
+        }
+
+        std::cout << "\rDone    \n\nCalculating the shortest path:\n";/*
         for (int i = 0; i < n; i++)
         {
             l.push_back(adjacency_matrix[0][i] != 0.f ? adjacency_matrix[0][i] : INFINITY);
@@ -72,6 +114,7 @@ int main(int argc, char* argv[])
         // determine how to split the matrix
         split_size = n / size;
         remainder = n - split_size * size;
+        
         // 1. send size of matrix to all nodes
         MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
         
@@ -122,17 +165,19 @@ int main(int argc, char* argv[])
     }
     
     MPI_Bcast(&source, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&sink, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     std::vector<float> local_distance(split_size);
     for (int i = 0; i < split_size; i++)
     {
         local_distance[i] = adjacency_matrix[i][source];
     }
-    
+    /*
     // check if data has been send successfuly
     if (rank == size - 1)
     {
-        std::cout << "Process " << rank << ": split size = " << split_size << "\n";
+        std::cout << "Process " << rank << ": split size = " << split_size <<
+        ", starting node = " << starting_node << "\n";
         std::cout << "l : ";
         for (int i = 0; i < split_size; i++)
         {
@@ -148,19 +193,22 @@ int main(int argc, char* argv[])
             std::cout << "\n";
         }
     }
-    
+    */
     // start calculation
-    std::vector<int> local_predecessor_node(split_size);
+    std::vector<int> local_predecessor_node(split_size, source);
     std::vector<bool> node_visited(split_size);
     node_distance local_min, global_min;
 
     if (source >= starting_node && source < starting_node + split_size)
     {
         node_visited[source - starting_node] = true;
+        local_distance[source - starting_node] = 0;
+        local_predecessor_node[source - starting_node] = source;
     }
     
     int local_min_node;
     float shortest_distance, new_distance;
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     for (int i = 0; i < n - 1; i++)
     {
         // find min local distance vertex
@@ -215,7 +263,7 @@ int main(int argc, char* argv[])
     std::vector<int> global_predecessor_node(n);
     MPI_Gatherv(&local_distance[0], split_size, MPI_FLOAT, &global_distance[0], &recvcounts[0], &displs[0], MPI_FLOAT, 0, MPI_COMM_WORLD);
     MPI_Gatherv(&local_predecessor_node[0], split_size, MPI_INT, &global_predecessor_node[0], &recvcounts[0], &displs[0], MPI_FLOAT, 0, MPI_COMM_WORLD);
-    std::cout << rank << "\n";
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     if (rank == 0)
     {
         std::cout << "FINAL RESULTS\n";
@@ -228,25 +276,65 @@ int main(int argc, char* argv[])
 
         for (int i = 0; i < n; i++)
         {
-            std::cout << global_predecessor_node[i] << " ";
+            std::cout << global_predecessor_node[i] + 1 << " ";
         }
         std::cout << "\n";
         
+        std::cout << "Path to node " << sink + 1 << ": ";
+            int current_node = sink;
+            int loop_detector = n;
+            while (true)
+            {
+                if (global_distance[sink] == INFINITY)
+                {
+                    std::cout << "nodes not connected";
+                    break;
+                }
+                
+                std::cout << '(' << current_node + 1 << ")<-";
+                current_node = global_predecessor_node[current_node];
+                loop_detector--;
+
+                if (current_node == source)
+                {
+                    std::cout << '(' << current_node << ')';
+                    break;
+                }
+                
+                if (loop_detector < 0)
+                {
+                    std::cout << "LOOP DETECTED";
+                    break;
+                }
+            }
+            std::cout << "\n";
+        /*
         for (int node = 0; node < n; node++)
         {
             if (node == source)
                 continue;
 
-            std::cout << "Path to node " << node << ": ";
+            std::cout << "Path to node " << node + 1 << ": ";
             int current_node = node;
+            int loop_detector = n;
             while (current_node != source)
             {
-                std::cout << current_node << " ";
+                std::cout << current_node + 1 << " ";
                 current_node = global_predecessor_node[current_node];
+                loop_detector--;
+                
+                if (loop_detector < 0)
+                {
+                    std::cout << "LOOP DETECTED";
+                    break;
+                }
             }
             std::cout << "\n";
-        }
+        }*/
     }
+
+    if (rank == 0)
+        std::cout << "Time: " << static_cast<float>(std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count()) / 1000 << "[s]\n";
 
     MPI_Finalize();
     return 0;

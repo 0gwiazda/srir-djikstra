@@ -7,13 +7,23 @@
 
 int main(int argc, char* argv[])
 {
-    std::ofstream file(argv[1]);
+    std::cout << sizeof(uint8_t) << "\n";
+    int N = std::stoi(argv[1]);
+    
+    char file_type = argv[2][0];
+    std::ofstream file;
+    if (file_type == 'b')
+    {
+        file = std::ofstream(argv[3], std::ios::binary);
+    }
+    else
+    {
+        file = std::ofstream(argv[3]);
+    }
 
-    int N = std::stoi(argv[2]);
-
-    int** matrix = new int*[N];
+    uint8_t** matrix = new uint8_t*[N];
     for(int i = 0; i < N; ++i)
-        matrix[i] = new int[N];
+        matrix[i] = new uint8_t[N];
     
     std::srand(std::time(nullptr));
     int random_value;
@@ -27,27 +37,42 @@ int main(int argc, char* argv[])
                 continue;
             }
             
-            if (std::rand() % 2 < 1)
+            if (std::rand() % 10 < 9)
             {
                 matrix[i][j] = 0;
                 matrix[j][i] = 0;
             }
             else
             {
-                random_value = std::rand() % 15 + 1;
+                random_value = std::rand() % 255 + 1;
                 matrix[i][j] = random_value;
                 matrix[j][i] = random_value;
             }
         }
     }
 
-    for (int i = 0; i < N; i++)
+    if (file_type == 'b')
     {
-        for (int j = 0; j < N; j++)
+        file.write(reinterpret_cast<const char*>(&N), sizeof(int));
+        
+        for (int i = 0; i < N; i++)
         {
-            file << matrix[i][j] << " ";
+            for (int j = 0; j < N; j++)
+            {
+                file.write(reinterpret_cast<const char*>(&matrix[i][j]), sizeof(uint8_t));
+            }
         }
-        file << "\n";
+    }
+    else
+    {
+        for (int i = 0; i < N; i++)
+        {
+            for (int j = 0; j < N; j++)
+            {
+                file << matrix[i][j] << " ";
+            }
+            file << "\n";
+        }
     }
 
     file.close();
