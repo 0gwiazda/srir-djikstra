@@ -26,14 +26,26 @@ int main(int argc, char* argv[])
     std::vector<std::vector<float>> adjacency_matrix;
     //std::vector<float> l;
     std::vector<int> recvcounts(size), displs(size);
+
+    double start = MPI_Wtime();
+
     if (rank == 0)
     {
-        if (argc != 2)
+        if (argc < 2)
         {
             throw std::invalid_argument("File name not specified");
         }
 
         std::ifstream file(argv[1]);
+        
+        if(argc != 3)
+        {
+            std::cout << "No node specified, using default: " + source << std::endl;
+        }
+        else
+        {
+            source = std::stoi(argv[2]);
+        }
 
         if (!file.is_open())
         {
@@ -150,7 +162,7 @@ int main(int argc, char* argv[])
     }
     
     // start calculation
-    std::vector<int> local_predecessor_node(split_size);
+    std::vector<int> local_predecessor_node(split_size, source);
     std::vector<bool> node_visited(split_size);
     node_distance local_min, global_min;
 
@@ -167,7 +179,7 @@ int main(int argc, char* argv[])
         local_min_node = -1;
         shortest_distance = INFINITY;
         
-        for (int node = 0; node < split_size; node++)
+        for (int node = 0; node < split_size; node++) 
         {
             if (!node_visited[node] && (local_distance[node] < shortest_distance))
             {
@@ -216,6 +228,7 @@ int main(int argc, char* argv[])
     MPI_Gatherv(&local_distance[0], split_size, MPI_FLOAT, &global_distance[0], &recvcounts[0], &displs[0], MPI_FLOAT, 0, MPI_COMM_WORLD);
     MPI_Gatherv(&local_predecessor_node[0], split_size, MPI_INT, &global_predecessor_node[0], &recvcounts[0], &displs[0], MPI_FLOAT, 0, MPI_COMM_WORLD);
     std::cout << rank << "\n";
+    
     if (rank == 0)
     {
         std::cout << "FINAL RESULTS\n";
@@ -224,7 +237,7 @@ int main(int argc, char* argv[])
         {
             std::cout << global_distance[i] << " ";
         }
-        std::cout << "\n";
+        std::cout << "\npredecessor ";
 
         for (int i = 0; i < n; i++)
         {
@@ -232,6 +245,8 @@ int main(int argc, char* argv[])
         }
         std::cout << "\n";
         
+        std::ofstream Path("path.txt");
+
         for (int node = 0; node < n; node++)
         {
             if (node == source)
@@ -239,15 +254,26 @@ int main(int argc, char* argv[])
 
             std::cout << "Path to node " << node << ": ";
             int current_node = node;
+
             while (current_node != source)
             {
                 std::cout << current_node << " ";
+                Path << current_node << " ";
                 current_node = global_predecessor_node[current_node];
-            }
+            } 
             std::cout << "\n";
+
+            Path << source << "\n";
         }
+
+        double end = MPI_Wtime();
+        Path.close();
+        std::cout << "Elapsed time: " << end - start << std::endl;
+
+
     }
 
     MPI_Finalize();
+
     return 0;
 }
