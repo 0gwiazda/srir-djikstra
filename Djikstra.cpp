@@ -267,7 +267,7 @@ int main(int argc, char* argv[])
     
     if (rank == 0)
     {
-        if(sink >= 0)
+        if(sink != -1)
         {
             std::cout << "FINAL RESULTS\n";
 
