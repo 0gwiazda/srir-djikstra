@@ -208,7 +208,7 @@ int main(int argc, char* argv[])
     
     int local_min_node;
     float shortest_distance, new_distance;
-    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    double start = MPI_Wtime();
     for (int i = 0; i < n - 1; i++)
     {
         // find min local distance vertex
@@ -267,48 +267,55 @@ int main(int argc, char* argv[])
     
     if (rank == 0)
     {
-        std::cout << "FINAL RESULTS\n";
-
-        for (int i = 0; i < n; i++)
+        if(sink >= 0)
         {
-            std::cout << global_distance[i] << " ";
-        }
-        std::cout << "\npredecessor ";
+            std::cout << "FINAL RESULTS\n";
 
-        for (int i = 0; i < n; i++)
-        {
-            std::cout << global_predecessor_node[i] + 1 << " ";
-        }
-        std::cout << "\n";
-        
-        std::cout << "Path to node " << sink + 1 << ": ";
-            int current_node = sink;
-            int loop_detector = n;
-            while (true)
+            for (int i = 0; i < n; i++)
             {
-                if (global_distance[sink] == INFINITY)
-                {
-                    std::cout << "nodes not connected";
-                    break;
-                }
-                
-                std::cout << '(' << current_node + 1 << ")<-";
-                current_node = global_predecessor_node[current_node];
-                loop_detector--;
+                std::cout << global_distance[i] << " ";
+            }
+            std::cout << "\npredecessor ";
 
-                if (current_node == source)
-                {
-                    std::cout << '(' << current_node << ')';
-                    break;
-                }
-                
-                if (loop_detector < 0)
-                {
-                    std::cout << "LOOP DETECTED";
-                    break;
-                }
+            for (int i = 0; i < n; i++)
+            {
+                std::cout << global_predecessor_node[i] + 1 << " ";
             }
             std::cout << "\n";
+            
+            std::cout << "Path to node " << sink + 1 << ": ";
+                int current_node = sink;
+                int loop_detector = n;
+                while (true)
+                {
+                    if (global_distance[sink] == INFINITY)
+                    {
+                        std::cout << "nodes not connected";
+                        break;
+                    }
+                    
+                    std::cout << '(' << current_node + 1 << ")<-";
+                    current_node = global_predecessor_node[current_node];
+                    loop_detector--;
+
+                    if (current_node == source)
+                    {
+                        std::cout << '(' << current_node << ')';
+                        break;
+                    }
+                    
+                    if (loop_detector < 0)
+                    {
+                        std::cout << "LOOP DETECTED";
+                        break;
+                    }
+                }
+                std::cout << "\n";
+        }
+        else
+        {
+            std::cout << "Saving to file \"paths.txt\"" << std::endl;
+        }
         /*
         std::ofstream Path("path.txt");
 
@@ -336,8 +343,11 @@ int main(int argc, char* argv[])
         }*/
     }
 
+    double end = MPI_Wtime();
+
     if (rank == 0)
-        std::cout << "Time: " << static_cast<float>(std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count()) / 1000 << "[s]\n";
+
+        std::cout << "Time: " << (end - start)/1000. << "[s]\n";
 
     MPI_Finalize();
 
