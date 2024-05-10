@@ -8,7 +8,6 @@
 #include <mpi.h>
 
 #define INFINITY std::numeric_limits<float>::infinity()
-#define END MPI_Finalize(); return 0;
 
 struct node_distance
 {
@@ -104,14 +103,8 @@ int main(int argc, char* argv[])
             }
         }
 
-        std::cout << "\rDone    \n\nCalculating the shortest path:\n";/*
-        for (int i = 0; i < n; i++)
-        {
-            l.push_back(adjacency_matrix[0][i] != 0.f ? adjacency_matrix[0][i] : INFINITY);
-        }
-        l.shrink_to_fit();*/
-
-        // determine how to split the matrix
+        std::cout << "\rDone    \n\nCalculating the shortest path...\n";
+        
         split_size = n / size;
         remainder = n - split_size * size;
         
@@ -133,9 +126,7 @@ int main(int argc, char* argv[])
             MPI_Send(&split_size_send, 1, MPI_INT, process, 0, MPI_COMM_WORLD);
             // 3. send starting node for every node
             MPI_Send(&split_sum, 1, MPI_INT, process, 0, MPI_COMM_WORLD);
-            // 4. send part of l array to every node
-            //MPI_Send(&l[split_sum], split_size_send, MPI_FLOAT, process, 0, MPI_COMM_WORLD);
-            // 5. send part of adjacency matrix to every node
+            // 4. send part of adjacency matrix to every node
             for (int i = 0; i < split_size_send; i++)
             {
                 MPI_Send(&adjacency_matrix[i + split_sum][0], n, MPI_FLOAT, process, 0, MPI_COMM_WORLD);
@@ -153,10 +144,6 @@ int main(int argc, char* argv[])
         // 3.
         MPI_Recv(&starting_node, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         // 4.
-        //l.resize(split_size);
-        //MPI_Recv(&l[0], split_size, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        
-        // 5.
         for (int i = 0; i < split_size; i++)
         {
             adjacency_matrix.push_back(std::vector<float>(n));
@@ -172,28 +159,7 @@ int main(int argc, char* argv[])
     {
         local_distance[i] = adjacency_matrix[i][source];
     }
-    /*
-    // check if data has been send successfuly
-    if (rank == size - 1)
-    {
-        std::cout << "Process " << rank << ": split size = " << split_size <<
-        ", starting node = " << starting_node << "\n";
-        std::cout << "l : ";
-        for (int i = 0; i < split_size; i++)
-        {
-            std::cout << local_distance[i] << " ";
-        }
-        std::cout << "\nmatrix\n";
-        for (int i = 0; i < split_size; i++)
-        {
-            for (int j = 0; j < n; j++)
-            {
-                std::cout << adjacency_matrix[i][j] << " ";
-            }
-            std::cout << "\n";
-        }
-    }
-    */
+    
     // start calculation
     std::vector<int> local_predecessor_node(split_size, source);
     std::vector<bool> node_visited(split_size);
@@ -263,44 +229,29 @@ int main(int argc, char* argv[])
     std::vector<int> global_predecessor_node(n);
     MPI_Gatherv(&local_distance[0], split_size, MPI_FLOAT, &global_distance[0], &recvcounts[0], &displs[0], MPI_FLOAT, 0, MPI_COMM_WORLD);
     MPI_Gatherv(&local_predecessor_node[0], split_size, MPI_INT, &global_predecessor_node[0], &recvcounts[0], &displs[0], MPI_FLOAT, 0, MPI_COMM_WORLD);
-    std::cout << rank << "\n";
-    
+    double end = MPI_Wtime();
     if (rank == 0)
     {
         if(sink != -1)
         {
-            std::cout << "FINAL RESULTS\n";
-
-            for (int i = 0; i < n; i++)
-            {
-                std::cout << global_distance[i] << " ";
-            }
-            std::cout << "\npredecessor ";
-
-            for (int i = 0; i < n; i++)
-            {
-                std::cout << global_predecessor_node[i] + 1 << " ";
-            }
-            std::cout << "\n";
-            
-            std::cout << "Path to node " << sink + 1 << ": ";
+            std::cout << "\nPath from node " << source << " to node " << sink << ":\n\n";
                 int current_node = sink;
                 int loop_detector = n;
                 while (true)
                 {
                     if (global_distance[sink] == INFINITY)
                     {
-                        std::cout << "nodes not connected";
+                        std::cout << "Nodes not connected\n\n";
                         break;
                     }
                     
-                    std::cout << '(' << current_node + 1 << ")<-";
+                    std::cout << '(' << current_node << ")<-";
                     current_node = global_predecessor_node[current_node];
                     loop_detector--;
 
                     if (current_node == source)
                     {
-                        std::cout << '(' << current_node << ')';
+                        std::cout << '(' << current_node << ")\n\n";
                         break;
                     }
                     
@@ -310,7 +261,7 @@ int main(int argc, char* argv[])
                         break;
                     }
                 }
-                std::cout << "\n";
+                std::cout << "Path length: " << global_distance[sink] << "\n";
         }
         else
         {
@@ -350,38 +301,11 @@ int main(int argc, char* argv[])
 
             Path.close();
         }
-        /*
-        std::ofstream Path("path.txt");
-
-        for (int node = 0; node < n; node++)
-        {
-            if (node == source)
-                continue;
-
-            std::cout << "Path to node " << node + 1 << ": ";
-            int current_node = node;
-            int loop_detector = n;
-            while (current_node != source)
-            {
-                std::cout << current_node + 1 << " ";
-                current_node = global_predecessor_node[current_node];
-                loop_detector--;
-                
-                if (loop_detector < 0)
-                {
-                    std::cout << "LOOP DETECTED";
-                    break;
-                }
-            }
-            std::cout << "\n";
-        }*/
     }
 
-    double end = MPI_Wtime();
-
+    /*
     if (rank == 0)
-
-        std::cout << "Time: " << (end - start)/1000. << "[s]\n";
+        std::cout << "Time: " << (end - start) << "[s]\n";*/
 
     MPI_Finalize();
 
