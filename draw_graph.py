@@ -2,7 +2,6 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
 import argparse
-import sys
 
 def main(): 
     parser = argparse.ArgumentParser()
@@ -40,9 +39,11 @@ def main():
             if len(paths) - 1 < int(args.shortest_path):
                 print("Invalid node number. Node number <= ", len(paths) - 1)
                 return
-
-            elif int(paths[int(args.shortest_path)] == "-1"):
+            if int(paths[int(args.shortest_path)] == "-1"):
                 print("Invalid node number. Node number cannot be equal to source node: ", int(args.shortest_path))
+                return
+            elif int(paths[int(args.shortest_path)] == "-2"):
+                print("Node not connected. Node: ", int(args.shortest_path))
                 return
             else:
                 node = int(args.shortest_path)
@@ -68,12 +69,6 @@ def main():
                 G.add_node(x)
                 G.add_node(y)
                 G.add_edge(x, y, weight=adj_list[x][y])
-
-
-    pos = nx.fruchterman_reingold_layout(G, k=12, scale=2)
-    plt.figure(1, figsize=(size, size))
-    nx.draw_networkx_nodes(G, pos)
-    nx.draw_networkx_edges(G, pos, edge_color='black')
 
     nx.draw_networkx_labels(G, pos)
     weights = nx.get_edge_attributes(G, "weight")

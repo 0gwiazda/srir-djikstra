@@ -276,6 +276,12 @@ int main(int argc, char* argv[])
                     continue;
                 }
 
+                if (global_distance[node] == INFINITY)
+                {
+                    Path << -2 << std::endl;
+                    break;
+                }
+
                 int current_node = node;
                 int loop_detector = n;
                 
