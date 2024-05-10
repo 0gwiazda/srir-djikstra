@@ -70,6 +70,11 @@ def main():
                 G.add_node(y)
                 G.add_edge(x, y, weight=adj_list[x][y])
 
+            pos = nx.fruchterman_reingold_layout(G, k=12, scale=2)
+            plt.figure(1, figsize=(size, size))
+            nx.draw_networkx_nodes(G, pos)
+            nx.draw_networkx_edges(G, pos, edge_color='black')
+
     nx.draw_networkx_labels(G, pos)
     weights = nx.get_edge_attributes(G, "weight")
 
